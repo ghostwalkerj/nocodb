@@ -24,6 +24,8 @@ import XcCache from "../plugins/adapters/cache/XcCache";
 import BaseModel from "./BaseModel";
 import {XcCron} from "./XcCron";
 import NcConnectionMgr from "./NcConnectionMgr";
+import updateColumnNameInFormula from "./helpers/updateColumnNameInFormula";
+import addErrorOnColumnDeleteInFormula from "./helpers/addErrorOnColumnDeleteInFormula";
 
 const log = debug('nc:api:base');
 
@@ -310,10 +312,12 @@ export default abstract class BaseApiBuilder<T extends Noco> implements XcDynami
     throw new Error('`onGqlSchemaUpdate` not implemented')
   }
 
-  public async onValidationUpdate(tn: string): Promise<void> {
+  // todo: change name to meta uodate
+  public async onMetaUpdate(tn: string): Promise<void> {
     this.baseLog(`onValidationUpdate : '%s'`, tn);
     const modelRow = await this.xcMeta.metaGet(this.projectId, this.dbAlias, 'nc_models', {
-      title: tn
+      title: tn,
+      type:'table'
     });
 
     if (!modelRow) {
@@ -324,6 +328,8 @@ export default abstract class BaseApiBuilder<T extends Noco> implements XcDynami
     this.metas[tn] = metaObj;
     this.baseLog(`onValidationUpdate : Generating model instance for '%s' table`, tn)
     this.models[modelRow.title] = this.getBaseModel(metaObj);
+
+    XcCache.del([this.projectId, this.dbAlias, 'table', tn].join('::'));
 
     // todo: check tableAlias changed or not
     // todo:
@@ -415,7 +421,14 @@ export default abstract class BaseApiBuilder<T extends Noco> implements XcDynami
           newCol.validate = oldCol.validate;
         }
 
+        // column rename
         if (column.cno !== column.cn) {
+
+          updateColumnNameInFormula({
+            virtualColumns: newMeta.v,
+            oldColumnName: oldCol.cn,
+            newColumnName: newCol.cn,
+          })
 
           // todo: populate alias
           newCol._cn = newCol.cn;
@@ -572,6 +585,11 @@ export default abstract class BaseApiBuilder<T extends Noco> implements XcDynami
           }
         }
 
+        addErrorOnColumnDeleteInFormula({
+          virtualColumns: newMeta.v,
+          columnName: column.cno
+        })
+
         aclOper.push(async () => this.deleteColumnNameInACL(tn, column.cno));
 
 
@@ -708,7 +726,6 @@ export default abstract class BaseApiBuilder<T extends Noco> implements XcDynami
       });
     }
     this.baseLog(`onTableUpdate : Generating model instance for '%s' table`, tn)
-
 
 
     await NcHelp.executeOperations(aclOper, this.connectionConfig.client);
@@ -952,17 +969,17 @@ export default abstract class BaseApiBuilder<T extends Noco> implements XcDynami
 
 
   protected initDbDriver(): void {
-    this.dbDriver =  NcConnectionMgr.get({
-      dbAlias:this.dbAlias,
-      env:this.config.env,
-      config:this.config,
-      projectId:this.projectId
+    this.dbDriver = NcConnectionMgr.get({
+      dbAlias: this.dbAlias,
+      env: this.config.env,
+      config: this.config,
+      projectId: this.projectId
     });
     this.sqlClient = NcConnectionMgr.getSqlClient({
-      dbAlias:this.dbAlias,
-      env:this.config.env,
-      config:this.config,
-      projectId:this.projectId
+      dbAlias: this.dbAlias,
+      env: this.config.env,
+      config: this.config,
+      projectId: this.projectId
     })
     // if (!this.dbDriver) {
     //   if(this.projectBuilder?.prefix){
