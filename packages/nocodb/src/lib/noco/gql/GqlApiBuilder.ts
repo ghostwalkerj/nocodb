@@ -1462,7 +1462,7 @@ export class GqlApiBuilder extends BaseApiBuilder<Noco> implements XcMetaMgr {
 
   public async onTableUpdate(changeObj: any): Promise<void> {
     this.log(`onTableUpdate :  '%s'`, changeObj.tn);
-    await super.onTableUpdate(changeObj, async ({ctx, meta}) => {
+    await super.onTableUpdate(changeObj, async ({ctx}) => {
 
 
       const tn = changeObj.tn;
@@ -1480,7 +1480,7 @@ export class GqlApiBuilder extends BaseApiBuilder<Noco> implements XcMetaMgr {
 
       const oldSchema = this.schemas[tn];
       this.log(`onTableUpdate :  Populating new schema for '%s' table`, changeObj.tn);
-      meta.schema = this.schemas[tn] = GqlXcSchemaFactory.create(this.connectionConfig, this.generateRendererArgs(enabledModelCtx)).getString();
+       this.schemas[tn] = GqlXcSchemaFactory.create(this.connectionConfig, this.generateRendererArgs(enabledModelCtx)).getString();
       if (oldSchema !== this.schemas[tn]) {
         this.log(`onTableUpdate :  Updating and taking backup of schema - '%s' table`, changeObj.tn);
 
@@ -1495,7 +1495,7 @@ export class GqlApiBuilder extends BaseApiBuilder<Noco> implements XcMetaMgr {
         }
 
         await this.xcMeta.metaUpdate(this.projectId, this.dbAlias, 'nc_models', {
-          schema: meta.schema,
+          schema: this.schemas[tn],
           schema_previous: JSON.stringify(previousSchemas)
         }, {
           title: tn
@@ -1991,10 +1991,11 @@ export class GqlApiBuilder extends BaseApiBuilder<Noco> implements XcMetaMgr {
       }
 
       await this.xcMeta.metaUpdate(this.projectId, this.dbAlias, 'nc_models', {
-        schema: meta.schema,
+        schema: this.schemas[tn],
         schema_previous: JSON.stringify(previousSchemas)
       }, {
-        title: tn
+        title: tn,
+        type:'table'
       });
 
     }
