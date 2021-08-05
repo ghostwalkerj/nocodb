@@ -322,7 +322,10 @@ class BaseModelSql extends BaseModel {
       const driver = trx ? trx : this.dbDriver
 
       // this.validate(data);
-      const response = await this._run(driver(this.tn).update(mappedData).where(this._wherePk(id)));
+      await this._run(driver(this.tn).update(mappedData).where(this._wherePk(id)));
+
+      const response = await this.nestedRead(id, this.defaultNestedQueryParams)
+
       await this.afterUpdate(data, trx, cookie);
       return response;
     } catch (e) {
@@ -1849,7 +1852,7 @@ class BaseModelSql extends BaseModel {
   protected get selectFormulas() {
     return (this.virtualColumns || [])?.reduce((arr, v) => {
       if (v.formula?.value && !v.formula?.error?.length) {
-        arr.push(formulaQueryBuilder(v.formula?.tree, v._cn, this.dbDriver))
+        arr.push(formulaQueryBuilder(v.formula?.tree, v._cn, this.dbDriver, this.aliasToColumn))
       }
       return arr;
     }, [])
